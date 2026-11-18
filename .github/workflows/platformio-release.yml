@@ -2,9 +2,6 @@ name: PlatformIO Library Release
 
 on:
   workflow_call:
-    secrets:
-      PLATFORMIO_AUTH_TOKEN:
-        required: true
 
 jobs:
   release:
