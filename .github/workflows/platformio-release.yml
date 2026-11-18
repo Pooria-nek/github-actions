@@ -1,13 +1,17 @@
+
 name: PlatformIO Library Release
 
 on:
   workflow_call:
 
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
 
-    # Uses the environment configured in the CALLING repository.
+    # Uses the environment configured in the calling repository.
     environment: platform io
 
     permissions:
@@ -36,6 +40,8 @@ jobs:
 
           if [ "$JSON_VERSION" != "$PROPERTIES_VERSION" ]; then
             echo "Version mismatch!"
+            echo "library.json: $JSON_VERSION"
+            echo "library.properties: $PROPERTIES_VERSION"
             exit 1
           fi
 
@@ -48,11 +54,13 @@ jobs:
       - name: Publish to PlatformIO
         env:
           PLATFORMIO_AUTH_TOKEN: ${{ secrets.PLATFORMIO_AUTH_TOKEN }}
+        shell: bash
         run: |
           if [ -z "$PLATFORMIO_AUTH_TOKEN" ]; then
             echo "Missing PlatformIO token"
             exit 1
           fi
+
           pio pkg publish /tmp/library.tar.gz --no-interactive
 
       - name: Create GitHub Release
