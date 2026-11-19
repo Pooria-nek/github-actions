@@ -1,47 +1,27 @@
 # PlatformIO Library Release
 
-A reusable GitHub Actions workflow for automatically packaging and publishing PlatformIO libraries to the [PlatformIO Registry](https://registry.platformio.org/) and creating GitHub Releases.
+A reusable GitHub Actions workflow that automates publishing PlatformIO libraries to the PlatformIO Registry and creating corresponding GitHub Releases.
 
 ## Features
 
-- Reusable workflow that can be called from multiple repositories.
-- Automatically checks library version consistency.
-- Packages the library using PlatformIO CLI.
-- Publishes the package to the PlatformIO Registry.
-- Creates a GitHub Release with automatically generated release notes.
-- Uses GitHub Environments to manage publishing credentials.
-
-## How It Works
-
-The workflow performs the following steps:
-
-1. Checks out the calling repository.
-2. Sets up Python 3.
-3. Installs the PlatformIO CLI.
-4. Reads the library version from `library.json` and `library.properties`.
-5. Verifies that both version values match.
-6. Packages the library into a `.tar.gz` archive.
-7. Publishes the package to the PlatformIO Registry.
-8. Creates a GitHub Release using the version as its tag.
-
-The generated release tag follows this format:
-
-```text
-v<version>
-```
-
-For example, version `1.2.0` produces the tag `v1.2.0`.
+- Reusable workflow for multiple repositories.
+- Automatic library version validation.
+- Automatic library packaging.
+- Publishing to the PlatformIO Registry.
+- Automatic GitHub Release creation.
+- Repository-level secret management.
+- No GitHub Environments required.
 
 ## Requirements
 
-The calling repository must be a valid PlatformIO library containing both:
+The calling repository must contain:
 
 ```text
 library.json
 library.properties
 ```
 
-The version declared in both files must be identical.
+Both files must specify the same library version.
 
 Example:
 
@@ -50,7 +30,7 @@ Example:
 ```json
 {
   "name": "MyLibrary",
-  "version": "1.2.0"
+  "version": "1.0.0"
 }
 ```
 
@@ -58,32 +38,29 @@ Example:
 
 ```ini
 name=MyLibrary
-version=1.2.0
+version=1.0.0
 ```
 
-## Configuration
+## Setup
 
-### 1. Create a GitHub Environment
+### 1. Configure the PlatformIO Token
 
-In the repository that calls this workflow:
+In each repository that uses this workflow:
 
 1. Open **Settings**.
-2. Navigate to **Environments**.
-3. Create an environment named:
+2. Navigate to **Secrets and variables → Actions**.
+3. Select **New repository secret**.
+4. Create the following secret:
 
-   `platform io`
-
-4. Add the following environment secret:
-
-| Secret | Description |
+| Name | Description |
 |---|---|
-| `PLATFORMIO_AUTH_TOKEN` | Authentication token for publishing packages to PlatformIO Registry. |
+| `PLATFORMIO_AUTH_TOKEN` | PlatformIO Registry authentication token. |
 
-The environment name must match the `environment` value in the reusable workflow.
+No GitHub Environment is required.
 
-### 2. Configure the Calling Repository
+### 2. Add the Calling Workflow
 
-Create a workflow file in the library repository:
+Create:
 
 `.github/workflows/release.yml`
 
@@ -107,83 +84,103 @@ permissions:
 jobs:
   release:
     uses: Pooria-nek/github-actions/.github/workflows/platformio-release.yml@main
-```
-
-Replace the repository and workflow path if your reusable workflow is stored elsewhere.
-
-If you use a different branch or tag for the reusable workflow, replace `@main` accordingly.
-
-### 3. Pass the Secret to the Reusable Workflow
-
-The calling workflow must pass the PlatformIO token:
-
-```yaml
-jobs:
-  release:
-    uses: Pooria-nek/github-actions/.github/workflows/platformio-release.yml@main
     secrets:
       PLATFORMIO_AUTH_TOKEN: ${{ secrets.PLATFORMIO_AUTH_TOKEN }}
 ```
 
-Alternatively, you can use:
+### 3. Configure Repository Permissions
+
+The calling workflow requires:
 
 ```yaml
-jobs:
-  release:
-    uses: Pooria-nek/github-actions/.github/workflows/platformio-release.yml@main
-    secrets: inherit
+permissions:
+  contents: write
 ```
 
-`secrets: inherit` passes the secrets available to the caller to the reusable workflow.
+This allows the workflow to create GitHub Releases and tags.
 
-**Important:** The secret is read from the calling repository's context, not automatically from the repository where the reusable workflow is stored. Each calling repository needs access to its own configured secret.
+## Workflow Execution
 
-## Permissions
+The workflow performs these steps:
 
-The workflow requires:
+1. Checks out the calling repository.
+2. Sets up Python.
+3. Installs PlatformIO CLI.
+4. Reads the version from `library.json`.
+5. Reads the version from `library.properties`.
+6. Checks that both versions match.
+7. Packages the library using `pio pkg pack`.
+8. Publishes the package to PlatformIO Registry.
+9. Creates a GitHub Release.
 
-| Permission | Purpose |
+## Release Tags
+
+GitHub Release tags are generated automatically from the library version.
+
+For example:
+
+| Library version | GitHub tag |
 |---|---|
-| `contents: write` | Create GitHub Releases and tags. |
+| `1.0.0` | `v1.0.0` |
+| `1.1.0` | `v1.1.0` |
+| `2.0.0` | `v2.0.0` |
 
-The `GITHUB_TOKEN` is used for GitHub Release creation. The PlatformIO token is used only for publishing to the PlatformIO Registry.
+Version numbers must be updated manually in both library metadata files before publishing.
 
-## Release Process
+## Triggering Releases
 
-When a commit is pushed to the `main` branch, the workflow starts automatically, unless the push only changes files excluded by `paths-ignore`.
+There are two ways to trigger the workflow:
 
-You can also trigger it manually through:
+**Automatic**
 
-**Actions → Release Library → Run workflow**
+Push changes to the `main` branch. Changes matching the ignored paths will not trigger a release.
 
-The workflow will fail if:
+**Manual**
 
-- `library.json` is missing.
-- `library.properties` is missing.
-- The versions in the two files do not match.
-- The PlatformIO authentication token is missing or invalid.
-- Packaging or publishing fails.
+Navigate to:
+
+`GitHub → Actions → Release Library → Run workflow`
+
+## Secret Management
+
+The reusable workflow receives the PlatformIO authentication token from the calling repository.
+
+```yaml
+secrets:
+  PLATFORMIO_AUTH_TOKEN: ${{ secrets.PLATFORMIO_AUTH_TOKEN }}
+```
+
+The reusable workflow accesses it using:
+
+```yaml
+${{ secrets.PLATFORMIO_AUTH_TOKEN }}
+```
+
+**Important:** Repository-level secrets belong to the calling repository. Each repository using this reusable workflow must configure its own `PLATFORMIO_AUTH_TOKEN`.
+
+## Error Handling
+
+The workflow stops if:
+
+- Either library metadata file is missing.
+- The versions do not match.
+- The PlatformIO token is missing or invalid.
+- Packaging fails.
+- Publishing fails.
 - GitHub Release creation fails.
 
-## Important Notes
+## Repository
 
-- Update the version in both `library.json` and `library.properties` before publishing a new release.
-- The workflow does not automatically increment the library version.
-- The workflow does not currently check whether the version has already been released.
-- If a GitHub Release with the same tag already exists, release creation may fail.
-- The workflow runs in the context of the calling repository. Its `platform io` environment must therefore be configured in that repository.
-- The reusable workflow can be maintained centrally and called by multiple repositories.
-
-## Workflow Location
-
-This workflow is maintained in:
+Maintained in:
 
 [Pooria-nek/github-actions](https://github.com/Pooria-nek/github-actions)
 
-Reusable workflow:
+Reusable workflow path:
 
 `.github/workflows/platformio-release.yml`
 
-## License
+## Current Limitations
 
-Use and modify this workflow according to the license of the repository containing it.
+- Version numbers are not automatically incremented.
+- Existing GitHub Release tags are not checked before release creation.
+- The workflow publishes to PlatformIO before creating the GitHub Release. If release creation fails, PlatformIO may already have received the package.
