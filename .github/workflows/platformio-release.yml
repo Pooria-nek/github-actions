@@ -3,6 +3,9 @@ name: PlatformIO Library Release
 
 on:
   workflow_call:
+    secrets:
+      PLATFORMIO_AUTH_TOKEN:
+        required: true
 
 permissions:
   contents: write
@@ -10,9 +13,6 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-
-    # Uses the environment configured in the calling repository.
-    environment: platform io
 
     permissions:
       contents: write
